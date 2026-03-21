@@ -74,3 +74,21 @@ npm run build
 - 💡 [Обсудите идею](https://github.com/rintaru123/diary-notes/discussions)
 
 **Сделано с ❤️ командой разработки Дневник Заметок**
+
+## Скриншоты
+
+### На смартфоне
+
+![Новая заметка](screenshots/1apk.jpg)
+
+![Новая заметка с данными](screenshots/2apk.jpg)
+
+![Панель настроек](screenshots/3apk.jpg)
+
+![Список заметок](screenshots/4apk.jpg)
+
+### На компьютере
+
+![Программа без записей](screenshots/1desktop.png)
+
+![Просмотр всех заметок](screenshots/2desktop.png)
