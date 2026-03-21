@@ -1,0 +1,12 @@
+{
+  "appId": "com.diary.notes",
+  "appName": "Дневник Заметок",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "plugins": {
+    "StatusBar": {
+      "overlaysWebView": false,
+      "style": "DARK"
+    }
+  }
+}

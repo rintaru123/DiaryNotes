@@ -1,0 +1,46 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+programs
+dist
+dist-ssr
+dist-electron
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Capacitor
+android/
+ios/
+.capacitor
+
+# Electron
+out/
+build/
+
+# Tauri
+src-tauri/target/
+src-tauri/Cargo.lock
+
+# Data files (для локальной разработки)
+notes_data.json
+diary_notes_data.json
+images/
+audio/
+backup/
