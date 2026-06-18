@@ -122,194 +122,153 @@ export default function NoteEditor({ isOpen, onClose, onSave, editNote }: Props)
   return (
     <div
       style={{ backgroundColor: colors.modalOverlay }}
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+      className="fixed inset-0 z-50 flex flex-col justify-end sm:items-center sm:justify-center p-0 sm:p-4"
       onClick={(e) => e.target === e.currentTarget && onClose()}
       onPaste={handlePaste}
     >
       <div
         style={{
-          backgroundColor: colors.surface,
+          backgroundColor: colors.bg,
           color: colors.text,
           borderColor: colors.border,
         }}
-        className="w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl border shadow-2xl max-h-[90vh] flex flex-col overflow-hidden"
+        className="w-full h-full sm:h-auto sm:max-w-2xl sm:rounded-2xl flex flex-col overflow-hidden border-t sm:border shadow-2xl transition-all"
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between px-5 py-4 border-b"
-          style={{ borderColor: colors.border }}
+          className="flex items-center justify-between px-4 py-3 border-b shrink-0 pt-safe sm:pt-3"
+          style={{ borderColor: colors.border, backgroundColor: colors.surface }}
         >
-          <h2 className="text-lg font-bold">
-            {editNote ? '✏️ Редактировать' : '📝 Новая заметка'}
-          </h2>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-lg transition-colors"
-            style={{ backgroundColor: colors.surfaceHover, color: colors.textSecondary }}
+            className="text-2xl w-10 h-10 flex items-center justify-center rounded-full transition-colors"
+            style={{ color: colors.textSecondary }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = colors.surfaceHover)}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
           >
             ✕
           </button>
+          <h2 className="text-lg font-bold">
+            {editNote ? 'Редактировать' : 'Новая заметка'}
+          </h2>
+          <button
+            onClick={handleSave}
+            disabled={!text.trim() && !photo && !audio}
+            className="px-4 py-2 rounded-full font-bold text-sm transition-colors disabled:opacity-50"
+            style={{
+              backgroundColor: colors.primary,
+              color: colors.primaryText,
+            }}
+          >
+            Готово
+          </button>
         </div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
-          {/* Photo */}
-          <div>
-            <label className="text-sm font-medium mb-2 block" style={{ color: colors.textSecondary }}>
-              📸 Фотография (необязательно)
-            </label>
-            {photo ? (
-              <div className="relative rounded-xl overflow-hidden">
-                <img
-                  src={photo}
-                  alt="Фото"
-                  className="w-full rounded-xl"
-                  style={{ maxHeight: '300px', objectFit: 'contain', backgroundColor: colors.input }}
-                />
-                <button
-                  onClick={() => setPhoto(undefined)}
-                  className="absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold"
-                  style={{ backgroundColor: colors.danger }}
-                >
-                  ✕
-                </button>
-              </div>
-            ) : (
-              <div className="flex gap-2">
-                {/* Gallery button */}
-                <button
-                  onClick={() => galleryRef.current?.click()}
-                  className="flex-1 py-6 rounded-xl border-2 border-dashed flex flex-col items-center gap-2 transition-colors"
-                  style={{
-                    borderColor: colors.border,
-                    color: colors.textSecondary,
-                    backgroundColor: colors.input,
-                  }}
-                >
-                  <span className="text-3xl">🖼️</span>
-                  <span className="text-xs font-medium">Из галереи</span>
-                </button>
+        {/* Body (Textarea expands to fill) */}
+        <div className="flex-1 overflow-y-auto flex flex-col">
+          <textarea
+            ref={textareaRef}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Напишите что-нибудь..."
+            className="w-full flex-1 px-5 py-4 resize-none outline-none bg-transparent text-lg leading-relaxed"
+            style={{ color: colors.text }}
+          />
 
-                {/* Camera button - show on mobile or always as option */}
-                {isMobile && (
+          {/* Media Previews inline at the bottom of the scrollable area */}
+          {(photo || audio) && (
+            <div className="px-5 pb-4 space-y-4 shrink-0">
+              {photo && (
+                <div className="relative inline-block rounded-xl overflow-hidden border" style={{ borderColor: colors.border }}>
+                  <img
+                    src={photo}
+                    alt="Фото"
+                    className="max-h-[200px] w-auto object-contain"
+                    style={{ backgroundColor: colors.input }}
+                  />
                   <button
-                    onClick={() => cameraRef.current?.click()}
-                    className="flex-1 py-6 rounded-xl border-2 border-dashed flex flex-col items-center gap-2 transition-colors"
-                    style={{
-                      borderColor: colors.border,
-                      color: colors.textSecondary,
-                      backgroundColor: colors.input,
-                    }}
-                  >
-                    <span className="text-3xl">📷</span>
-                    <span className="text-xs font-medium">Камера</span>
-                  </button>
-                )}
-              </div>
-            )}
-            {/* Gallery input - accepts ALL image formats, no capture */}
-            <input
-              ref={galleryRef}
-              type="file"
-              accept="image/*,.heic,.heif,.avif,.svg,.bmp,.tiff,.tif,.ico,.raw"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-            {/* Camera input - mobile camera capture */}
-              <input
-                ref={cameraRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-            </div>
-
-            {/* Audio */}
-            <div>
-              <label className="text-sm font-medium mb-2 block" style={{ color: colors.textSecondary }}>
-                🎤 Аудио (необязательно)
-              </label>
-              {audio ? (
-                <div className="relative rounded-xl overflow-hidden p-3" style={{ backgroundColor: colors.input }}>
-                  <audio controls src={audio} className="w-full" />
-                  <button
-                    onClick={() => setAudio(undefined)}
-                    className="absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                    onClick={() => setPhoto(undefined)}
+                    className="absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-md"
                     style={{ backgroundColor: colors.danger }}
                   >
                     ✕
                   </button>
                 </div>
-              ) : (
-                <button
-                  onClick={() => audioRef.current?.click()}
-                  className="w-full py-4 rounded-xl border flex flex-col items-center gap-1 transition-colors"
-                  style={{
-                    borderColor: colors.border,
-                    color: colors.textSecondary,
-                    backgroundColor: colors.input,
-                  }}
-                >
-                  <span className="text-2xl">🎵</span>
-                  <span className="text-xs font-medium">Прикрепить аудио</span>
-                </button>
               )}
-              <input
-                ref={audioRef}
-                type="file"
-                accept="audio/*"
-                onChange={handleAudioChange}
-                className="hidden"
-              />
+              {audio && (
+                <div className="relative rounded-xl p-3 border flex items-center pr-12" style={{ backgroundColor: colors.input, borderColor: colors.border }}>
+                  <audio controls src={audio} className="w-full h-10" />
+                  <button
+                    onClick={() => setAudio(undefined)}
+                    className="absolute right-3 w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-md"
+                    style={{ backgroundColor: colors.danger }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
             </div>
-
-            {/* Text */}
-          <div>
-            <label className="text-sm font-medium mb-2 block" style={{ color: colors.textSecondary }}>
-              💬 Текст заметки (можно вставить фото из буфера обмена)
-            </label>
-            <textarea
-              ref={textareaRef}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Напишите что-нибудь или вставьте картинку (Ctrl+V) ..."
-              rows={4}
-              className="w-full rounded-xl px-4 py-3 resize-none outline-none border transition-colors text-base"
-              style={{
-                backgroundColor: colors.input,
-                color: colors.inputText,
-                borderColor: colors.border,
-              }}
-            />
-          </div>
+          )}
         </div>
 
-        {/* Footer */}
-        <div className="px-5 py-4 pb-safe border-t flex gap-3" style={{ borderColor: colors.border }}>
+        {/* Bottom Toolbar (Icons) */}
+        <div 
+          className="px-4 py-3 border-t shrink-0 flex items-center gap-4 pb-safe" 
+          style={{ borderColor: colors.border, backgroundColor: colors.surface }}
+        >
           <button
-            onClick={onClose}
-            className="flex-1 py-3 rounded-xl font-semibold transition-colors border"
-            style={{
-              borderColor: colors.border,
-              color: colors.textSecondary,
-              backgroundColor: colors.surface,
-            }}
+            onClick={() => galleryRef.current?.click()}
+            className="w-10 h-10 rounded-full flex items-center justify-center text-xl transition-colors"
+            style={{ color: colors.primary, backgroundColor: `${colors.primary}15` }}
+            title="Добавить фото из галереи"
           >
-            Отмена
+            🖼️
           </button>
+
+          {isMobile && (
+            <button
+              onClick={() => cameraRef.current?.click()}
+              className="w-10 h-10 rounded-full flex items-center justify-center text-xl transition-colors"
+              style={{ color: colors.primary, backgroundColor: `${colors.primary}15` }}
+              title="Сделать фото"
+            >
+              📷
+            </button>
+          )}
+
           <button
-            onClick={handleSave}
-            className="flex-1 py-3 rounded-xl font-semibold transition-colors"
-            style={{
-              backgroundColor: (!text.trim() && !photo && !audio) ? colors.surfaceHover : colors.primary,
-              color: (!text.trim() && !photo && !audio) ? colors.textSecondary : colors.primaryText,
-            }}
+            onClick={() => audioRef.current?.click()}
+            className="w-10 h-10 rounded-full flex items-center justify-center text-xl transition-colors"
+            style={{ color: colors.primary, backgroundColor: `${colors.primary}15` }}
+            title="Прикрепить аудио"
           >
-            💾 Сохранить
+            🎤
           </button>
         </div>
+
+        {/* Hidden Inputs */}
+        <input
+          ref={galleryRef}
+          type="file"
+          accept="image/*,.heic,.heif,.avif,.svg,.bmp,.tiff,.tif,.ico,.raw"
+          onChange={handleFileChange}
+          className="hidden"
+        />
+        <input
+          ref={cameraRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleFileChange}
+          className="hidden"
+        />
+        <input
+          ref={audioRef}
+          type="file"
+          accept="audio/*"
+          onChange={handleAudioChange}
+          className="hidden"
+        />
       </div>
     </div>
   );

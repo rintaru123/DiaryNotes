@@ -17,6 +17,7 @@ import {
   requestPersistentStorage,
   getSetting,
   saveSetting,
+  updateNativeReminders,
 } from './db';
 
 function formatDate(d: Date): string {
@@ -45,6 +46,12 @@ function getDayOfWeek(dateStr: string): string {
 function AppInner() {
   const { colors, theme } = useTheme();
   const [currentDate, setCurrentDate] = useState(formatDate(new Date()));
+  const [headerVisible, setHeaderVisible] = useState(true);
+  const [slideAnim, setSlideAnim] = useState<'slide-left' | 'slide-right' | ''>('');
+  const lastScrollY = useRef(0);
+  const showHeader = useRef(true);
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const [allNotesList, setAllNotesList] = useState<Note[]>([]);
   const [editorOpen, setEditorOpen] = useState(false);
@@ -119,31 +126,44 @@ function AppInner() {
     loadNotes();
   }, [loadNotes]);
 
+  // Scroll handler for auto-hiding header
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      
+      if (currentScrollY <= 0) {
+        if (!showHeader.current) {
+          showHeader.current = true;
+          setHeaderVisible(true);
+        }
+        lastScrollY.current = currentScrollY;
+        return;
+      }
+
+      const scrollingDown = currentScrollY > lastScrollY.current;
+
+      if (scrollingDown && currentScrollY > 60 && showHeader.current) {
+        showHeader.current = false;
+        setHeaderVisible(false);
+      } else if (!scrollingDown && !showHeader.current) {
+        showHeader.current = true;
+        setHeaderVisible(true);
+      }
+      
+      lastScrollY.current = currentScrollY;
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   // Reminder checker
   useEffect(() => {
     const initNotifications = async () => {
       if (typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform()) {
         const { LocalNotifications } = await import('@capacitor/local-notifications');
         await LocalNotifications.requestPermissions();
-        
-        const enabled = await getSetting('globalReminderEnabled');
-        const time = await getSetting('globalReminderTime') || '20:00';
-        
-        if (enabled) {
-          const [hour, minute] = time.split(':').map(Number);
-          await LocalNotifications.schedule({
-            notifications: [
-              {
-                title: '📓 Время для заметок!',
-                body: 'Не забудьте оставить запись о сегодняшнем дне.',
-                id: 1,
-                schedule: { on: { hour, minute }, allowWhileIdle: true },
-              }
-            ]
-          });
-        } else {
-          await LocalNotifications.cancel({ notifications: [{ id: 1 }] });
-        }
+        await updateNativeReminders();
       } else {
         if ('Notification' in window && Notification.permission === 'default') {
           Notification.requestPermission();
@@ -181,7 +201,7 @@ function AppInner() {
           // Trigger reminder!
           if ('Notification' in window && Notification.permission === 'granted') {
             new Notification('📓 Время для заметок!', {
-              body: 'Не забудьте оставить запись о сегодняшнем дне.',
+              body: 'Как прошел ваш день? Запишите главные моменты, пока они не забылись.',
               icon: '📝',
             });
             await saveSetting('lastReminderFiredDate', today);
@@ -216,12 +236,14 @@ function AppInner() {
     setEditingNote(null);
     loadNotes();
     loadAllNotes();
+    updateNativeReminders();
   };
 
   const handleDelete = async (id: string) => {
     await deleteNote(id);
     loadNotes();
     loadAllNotes();
+    updateNativeReminders();
   };
 
   const handleEdit = (note: Note) => {
@@ -231,12 +253,50 @@ function AppInner() {
   };
 
   const changeDate = (offset: number) => {
+    setSlideAnim(offset > 0 ? 'slide-left' : 'slide-right');
     const [y, m, d] = currentDate.split('-').map(Number);
     const dateObj = new Date(y, m - 1, d + offset, 12, 0, 0);
     setCurrentDate(formatDate(dateObj));
   };
 
-  const goToday = () => setCurrentDate(formatDate(new Date()));
+  const goToday = () => {
+    const today = formatDate(new Date());
+    if (today > currentDate) setSlideAnim('slide-left');
+    else if (today < currentDate) setSlideAnim('slide-right');
+    setCurrentDate(today);
+  };
+
+  // Swipe Handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    
+    // Prevent swipe if interacting with modals/viewers
+    const target = e.target as HTMLElement;
+    if (target.closest && target.closest('.z-50, .z-\\[100\\]')) return;
+
+    const touchEndX = e.changedTouches[0].clientX;
+    const touchEndY = e.changedTouches[0].clientY;
+
+    const deltaX = touchStartX.current - touchEndX;
+    const deltaY = touchStartY.current - touchEndY;
+
+    // Check if swipe is mostly horizontal and significant
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+      if (deltaX > 0) {
+        changeDate(1); // Swipe left -> Next day
+      } else {
+        changeDate(-1); // Swipe right -> Prev day
+      }
+    }
+
+    touchStartX.current = null;
+    touchStartY.current = null;
+  };
 
   const handleExport = async (format: 'json' | 'zip' = 'json') => {
     try {
@@ -324,12 +384,16 @@ function AppInner() {
 
   return (
     <div
-      className="min-h-screen flex flex-col transition-colors duration-300"
+      className="min-h-screen flex flex-col transition-colors duration-300 overflow-x-hidden"
       style={{ backgroundColor: colors.bg, color: colors.text }}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
       {/* Header */}
       <header
-        className="sticky top-0 z-40 border-b backdrop-blur-sm pt-safe"
+        className={`fixed w-full top-0 z-40 border-b backdrop-blur-sm pt-safe transition-transform duration-300 ${
+          headerVisible ? 'translate-y-0' : '-translate-y-full'
+        }`}
         style={{
           backgroundColor: `${colors.surface}ee`,
           borderColor: colors.border,
@@ -375,8 +439,15 @@ function AppInner() {
         </div>
       </header>
 
+      {/* Spacer for fixed header */}
+      <div style={{ height: 'calc(env(safe-area-inset-top) + 85px)' }} className="shrink-0 w-full" />
+
       {/* Date Navigation */}
-      <div className="max-w-2xl mx-auto w-full px-4 py-4">
+      <div 
+        key={`nav-${currentDate}`}
+        className={`max-w-2xl mx-auto w-full px-4 py-4 ${slideAnim}`}
+        onAnimationEnd={() => setSlideAnim('')}
+      >
         <div className="flex items-center justify-between">
           <button
             onClick={() => changeDate(-1)}
@@ -404,7 +475,10 @@ function AppInner() {
       </div>
 
       {/* Notes List */}
-      <main className="flex-1 max-w-2xl mx-auto w-full px-4 pb-24">
+      <main 
+        key={`main-${currentDate}`}
+        className={`flex-1 max-w-2xl mx-auto w-full px-4 pb-24 ${slideAnim}`}
+      >
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div

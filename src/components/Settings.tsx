@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { themes } from '../themes';
-import { setupPortableFile, disconnectPortableFile, getSetting, saveSetting } from '../db';
+import { setupPortableFile, disconnectPortableFile, getSetting, saveSetting, updateNativeReminders } from '../db';
 
 interface Props {
   isOpen: boolean;
@@ -33,27 +33,6 @@ export default function Settings({ isOpen, onClose, onExport, onImport, onFileCo
 
   if (!isOpen) return null;
 
-  const updateNativeNotification = async (enabled: boolean, timeStr: string) => {
-    if (typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform()) {
-      const { LocalNotifications } = await import('@capacitor/local-notifications');
-      if (enabled) {
-        const [hour, minute] = timeStr.split(':').map(Number);
-        await LocalNotifications.schedule({
-          notifications: [
-            {
-              title: '📓 Время для заметок!',
-              body: 'Не забудьте оставить запись о сегодняшнем дне.',
-              id: 1,
-              schedule: { on: { hour, minute }, allowWhileIdle: true },
-            }
-          ]
-        });
-      } else {
-        await LocalNotifications.cancel({ notifications: [{ id: 1 }] });
-      }
-    }
-  };
-
   const toggleReminder = async () => {
     const newVal = !reminderEnabled;
     setReminderEnabled(newVal);
@@ -64,13 +43,13 @@ export default function Settings({ isOpen, onClose, onExport, onImport, onFileCo
         Notification.requestPermission();
       }
     }
-    await updateNativeNotification(newVal, reminderTime);
+    await updateNativeReminders();
   };
 
   const changeReminderTime = async (time: string) => {
     setReminderTime(time);
     await saveSetting('globalReminderTime', time);
-    await updateNativeNotification(reminderEnabled, time);
+    await updateNativeReminders();
   };
 
   const handleSetupPortable = async (createNew: boolean) => {

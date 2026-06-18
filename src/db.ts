@@ -286,6 +286,54 @@ export async function getSetting(key: string): Promise<any> {
   });
 }
 
+function formatDate(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export async function updateNativeReminders() {
+  if (!Capacitor.isNativePlatform()) return;
+  try {
+    const { LocalNotifications } = await import('@capacitor/local-notifications');
+    await LocalNotifications.cancel({ notifications: Array.from({ length: 14 }, (_, i) => ({ id: i + 1 })) });
+    
+    const enabled = await getSetting('globalReminderEnabled');
+    if (!enabled) return;
+    
+    const time = await getSetting('globalReminderTime') || '20:00';
+    const [hour, minute] = time.split(':').map(Number);
+    
+    const todayStr = formatDate(new Date());
+    const notesToday = await getNotesByDate(todayStr);
+    const startOffset = notesToday.length > 0 ? 1 : 0;
+    
+    const pending = [];
+    // Планируем уведомления на 14 дней вперед (если не зайдут в приложение)
+    for (let i = startOffset; i < startOffset + 14; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() + i);
+      d.setHours(hour, minute, 0, 0);
+      
+      if (i === 0 && d.getTime() < Date.now()) continue; // пропускаем сегодня, если время уже прошло
+
+      pending.push({
+        id: i + 1,
+        title: '📓 Время для заметок!',
+        body: 'Как прошел ваш день? Запишите главные моменты, пока они не забылись.',
+        schedule: { at: d, allowWhileIdle: true }
+      });
+    }
+    
+    if (pending.length > 0) {
+      await LocalNotifications.schedule({ notifications: pending });
+    }
+  } catch (e) {
+    console.error('Failed to update native reminders:', e);
+  }
+}
+
 export async function saveSetting(key: string, value: any): Promise<void> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
